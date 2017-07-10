@@ -13,10 +13,14 @@ import com.vungle.publisher.EventListener;
 import com.vungle.publisher.Orientation;
 import com.vungle.publisher.VunglePub;
 
+import java.util.concurrent.CopyOnWriteArrayList;
+
 public class MainActivity extends Activity implements OnClickListener {
 
 	// get the VunglePub instance
 	final VunglePub vunglePub = VunglePub.getInstance();
+
+    private final CopyOnWriteArrayList<EventListener> mVungleListenerList = new CopyOnWriteArrayList<>();
 
 	// buttons
 	private ImageButton buttonPlayAd;
@@ -31,10 +35,14 @@ public class MainActivity extends Activity implements OnClickListener {
 		// get your App ID from the app's main page on the Vungle Dashboard after setting up your app
 		final String app_id = "Test_Android";
 
+        this.addEventListener(vungleSecondListener);
+
 		// initialize the Publisher SDK
 		vunglePub.init(this, app_id);
 
-		vunglePub.setEventListeners(vungleDefaultListener, vungleSecondListener);
+		vunglePub.setEventListeners(vungleDefaultListener);
+
+        this.addEventListener(vungleSecondListener);
 
 		// initialize buttons
 		buttonPlayAd = (ImageButton) findViewById(R.id.button_play_ad);
@@ -59,27 +67,69 @@ public class MainActivity extends Activity implements OnClickListener {
 		}
 	}
 
+	private void addEventListener(EventListener listener) {
+        synchronized (mVungleListenerList) {
+            mVungleListenerList.add(listener);
+        }
+    }
+
+    private void removeEventListener(EventListener listener) {
+        synchronized (mVungleListenerList) {
+            mVungleListenerList.remove(listener);
+        }
+    }
+
 	private final EventListener vungleDefaultListener = new EventListener() {
 
 		@Override
 		public void onAdStart() {
 			// Called before playing an ad.
+            Log.d("DefaultListener", "DefaultListener onAdStart");
+
+            synchronized (mVungleListenerList) {
+                for (EventListener listener : mVungleListenerList) {
+                    listener.onAdStart();
+                }
+            }
 		}
 
 		@Override
 		public void onAdUnavailable(String reason) {
 			// Called when VunglePub.playAd() was called but no ad is available to show to the user.
+            Log.d("DefaultListener", "DefaultListener onAdUnavailable " + reason);
+
+            synchronized (mVungleListenerList) {
+                for (EventListener listener : mVungleListenerList) {
+                    listener.onAdUnavailable(reason);
+                }
+            }
 		}
 
 		@Override
 		public void onAdEnd(boolean wasSuccessfulView, boolean wasCallToActionClicked) {
 			// Called when the user leaves the ad and control is returned to your application.
+            Log.d("DefaultListener", "DefaultListener onAdEnd : wasSuccessfulView = " + wasSuccessfulView + " wasCallToActionClicked = " + wasCallToActionClicked );
+
+            synchronized (mVungleListenerList) {
+                for (EventListener listener : mVungleListenerList) {
+                    listener.onAdEnd(wasSuccessfulView, wasCallToActionClicked);
+                }
+            }
+
+            Log.d("DefaultListener", "listener list count = " + mVungleListenerList.size());
 		}
 
 		@Override
 		public void onAdPlayableChanged(boolean isAdPlayable) {
 			// Called when ad playability changes.
 			Log.d("DefaultListener", "This is a default eventlistener.");
+
+            synchronized (mVungleListenerList) {
+                for (EventListener listener : mVungleListenerList) {
+                    listener.onAdPlayableChanged(isAdPlayable);
+                }
+            }
+
 			final boolean enabled = isAdPlayable;
 			runOnUiThread(new Runnable() {
 				@Override
